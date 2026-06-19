@@ -1,0 +1,2147 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1B1D1F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Notizen">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Notiz-Werkstatt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink-black:#1B1D1F;
+    --shell-mid:#262A2E;
+    --shell-soft:#323740;
+    --paper:#FBF7EF;
+    --brass:#C8862E;
+    --brass-soft:#E3B774;
+    --pen-blue:#25344A;
+    --signal-red:#B5482F;
+    --text-light:#EDEAE2;
+    --text-dim:#9AA0A8;
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --sans:'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:var(--sans);
+    background:var(--shell-mid);
+    color:var(--text-light);
+    overflow:hidden;
+  }
+  button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer;}
+  button:disabled{opacity:.3;cursor:not-allowed;}
+  input{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--brass);outline-offset:2px;}
+
+  #app{
+    display:grid;
+    grid-template-columns:64px 1fr;
+    grid-template-rows:1fr;
+    height:100vh;
+    width:100vw;
+  }
+
+  /* ---- toolrail ---- */
+  #toolrail{
+    grid-column:1;
+    background:var(--ink-black);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:14px 0;
+    gap:6px;
+    border-right:1px solid #000;
+    z-index:5;
+    overflow-y:auto;
+  }
+  .tool-btn{
+    width:42px;height:42px;border-radius:11px;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s ease,color .15s ease,transform .1s ease;
+    font-family:var(--mono);font-weight:700;font-size:14px;
+    position:relative;
+    flex-shrink:0;
+  }
+  .tool-btn svg{width:20px;height:20px;}
+  .tool-btn:hover{background:var(--shell-soft);}
+  .tool-btn.active{background:var(--brass);color:var(--ink-black);}
+  .tool-btn:active{transform:scale(.92);}
+  .tool-btn .pen-dot{
+    position:absolute;
+    bottom:4px;right:4px;
+    width:10px;height:10px;
+    border-radius:50%;
+    border:1.5px solid var(--ink-black);
+    box-shadow:0 0 0 1px rgba(255,255,255,.2);
+  }
+  .tool-btn.active .pen-dot{
+    border-color:var(--brass);
+    box-shadow:0 0 0 1px rgba(0,0,0,.4);
+  }
+  .rail-spacer{flex:1;min-height:8px;}
+  .rail-divider{width:28px;height:1px;background:#000;margin:4px 0;flex-shrink:0;}
+
+  /* ---- main column ---- */
+  #main{grid-column:2;display:flex;flex-direction:column;height:100%;min-width:0;}
+
+  #topbar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:var(--ink-black);
+    padding:10px 14px;
+    border-bottom:1px solid #000;
+    min-height:48px;
+  }
+  #title-input{
+    background:transparent;
+    color:var(--text-light);
+    border:none;border-bottom:1px solid transparent;
+    font-size:15px;font-weight:500;
+    padding:4px 0;
+    min-width:80px;
+    max-width:220px;
+  }
+  #title-input:hover{border-bottom-color:var(--shell-soft);}
+  #title-input:focus{border-bottom-color:var(--brass);outline:none;}
+  .group{display:flex;align-items:center;gap:4px;}
+  .icon-btn{
+    width:34px;height:34px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s ease;
+    color:var(--text-light);
+  }
+  .icon-btn:hover{background:var(--shell-soft);}
+  .icon-btn:active{transform:scale(.94);}
+  .icon-btn svg{width:18px;height:18px;}
+  .icon-btn.danger.armed{
+    background:var(--signal-red);
+    color:#fff;
+    animation:pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:.6;}
+  }
+  #page-indicator{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--text-dim);
+    padding:0 6px;
+    min-width:48px;text-align:center;
+  }
+  .topbar-spacer{flex:1;}
+  #status{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-dim);
+    padding:0 8px;
+  }
+
+  /* ---- subbar ---- */
+  #subbar{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:var(--shell-soft);
+    padding:8px 14px;
+    border-bottom:1px solid #000;
+    min-height:42px;
+  }
+  #color-row{display:flex;align-items:center;gap:6px;}
+  .swatch{
+    width:22px;height:22px;border-radius:50%;
+    border:2px solid var(--shell-mid);
+    transition:transform .15s ease, border-color .15s ease;
+    cursor:pointer;
+  }
+  .swatch:hover{transform:scale(1.1);}
+  .swatch.active{border-color:var(--brass);transform:scale(1.15);}
+  #custom-color{
+    width:28px;height:28px;
+    border-radius:50%;border:2px solid var(--shell-mid);
+    background:transparent;cursor:pointer;
+    padding:0;
+  }
+  #custom-color::-webkit-color-swatch-wrapper{padding:0;}
+  #custom-color::-webkit-color-swatch{border:none;border-radius:50%;}
+  #size-row{display:flex;align-items:center;gap:8px;font-size:12px;font-family:var(--mono);color:var(--text-dim);}
+  #size-slider{width:120px;accent-color:var(--brass);}
+  #size-label{min-width:34px;text-align:right;}
+  #paper-row{display:flex;align-items:center;gap:6px;}
+  #paper-row .paper-label{
+    font-family:var(--mono);font-size:11px;
+    color:var(--text-dim);
+    margin-right:2px;
+  }
+  .paper-btn{
+    width:28px;height:28px;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    border:1.5px solid transparent;
+    background:var(--paper);
+    transition:border-color .15s ease, transform .1s ease;
+  }
+  .paper-btn:hover{transform:scale(1.05);}
+  .paper-btn.active{border-color:var(--brass);}
+  .paper-btn .paper-preview{
+    width:100%;height:100%;border-radius:4px;
+    background-color:var(--paper);
+  }
+
+  /* ---- canvas stage ---- */
+  #canvas-stage{
+    flex:1;
+    overflow:auto;
+    background:var(--shell-mid);
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:32px 16px 64px;
+    position:relative;
+  }
+  .page-canvas{
+    display:none;
+    background-color:var(--paper);
+    box-shadow:0 4px 24px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04);
+    border-radius:2px;
+    touch-action:pan-y;
+    -webkit-user-select:none;user-select:none;
+  }
+  .page-canvas.finger-draw{
+    touch-action:none;
+  }
+  .page-canvas.active{display:block;}
+
+  /* paper backgrounds — using CSS so eraser doesn't destroy them */
+  .page-canvas.paper-dots{
+    background-image:
+      radial-gradient(circle, rgba(40,35,20,0.20) 1.2px, transparent 1.4px);
+    background-size:24px 24px;
+    background-position:12px 12px;
+  }
+  .page-canvas.paper-lined{
+    background-image:
+      linear-gradient(to bottom, transparent calc(28px - 1px), rgba(60,80,120,0.28) calc(28px - 1px), rgba(60,80,120,0.28) 28px, transparent 28px);
+    background-size:100% 28px;
+    background-position:0 32px;
+  }
+  .page-canvas.paper-grid{
+    background-image:
+      linear-gradient(to right, rgba(60,80,120,0.22) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(60,80,120,0.22) 1px, transparent 1px);
+    background-size:24px 24px;
+    background-position:0 0, 0 0;
+  }
+  .page-canvas.paper-blank{
+    /* no pattern */
+  }
+  .page-canvas.paper-image{
+    /* fully filled by canvas content */
+  }
+
+  #page-tab{
+    position:absolute;
+    width:32px;height:48px;
+    background:var(--brass);
+    color:var(--ink-black);
+    font-family:var(--mono);font-weight:700;font-size:13px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:0 4px 4px 0;
+    box-shadow:0 2px 8px rgba(0,0,0,.4);
+    pointer-events:none;
+    z-index:2;
+  }
+
+  .text-edit-input{
+    position:fixed;
+    background:transparent;
+    border:1px dashed var(--brass);
+    padding:2px 4px;
+    z-index:100;
+    min-width:80px;
+    outline:none;
+  }
+
+  /* ---- info panel ---- */
+  #info-panel{
+    position:fixed;
+    top:60px;right:14px;
+    background:var(--ink-black);
+    color:var(--text-light);
+    padding:14px 16px;
+    border-radius:8px;
+    border:1px solid var(--shell-soft);
+    max-width:320px;
+    font-size:13px;
+    line-height:1.5;
+    box-shadow:0 8px 32px rgba(0,0,0,.6);
+    z-index:50;
+    display:none;
+  }
+  #info-panel.open{display:block;}
+  #info-panel b{color:var(--brass-soft);}
+
+  /* page tag indicator */
+  .page-tag{
+    position:absolute;
+    top:8px;right:8px;
+    font-family:var(--mono);font-size:10px;
+    background:var(--brass);color:var(--ink-black);
+    padding:2px 5px;border-radius:3px;
+    min-width:50px;
+  }
+
+  /* ---- library / notebook switcher ---- */
+  #library-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(15,17,19,0.92);
+    z-index:300;
+    display:none;
+    flex-direction:column;
+    overflow:auto;
+    padding:env(safe-area-inset-top, 16px) 16px 24px;
+  }
+  #library-overlay.open{display:flex;}
+  #library-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 4px 18px;
+    color:var(--text-light);
+  }
+  #library-header h2{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+  }
+  #library-close{
+    width:38px;height:38px;border-radius:10px;
+    background:var(--shell-soft);color:var(--text-light);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #library-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
+    gap:12px;
+  }
+  .nb-card{
+    background:var(--paper);
+    border-radius:10px;
+    padding:14px 14px 12px;
+    color:var(--ink-black);
+    cursor:pointer;
+    min-height:130px;
+    display:flex;flex-direction:column;
+    position:relative;
+    transition:transform .15s ease, box-shadow .15s ease;
+    box-shadow:0 2px 8px rgba(0,0,0,.3);
+  }
+  .nb-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.45);}
+  .nb-card.active{outline:2px solid var(--brass);outline-offset:2px;}
+  .nb-card-title{
+    font-weight:600;font-size:15px;
+    margin-bottom:6px;
+    overflow:hidden;text-overflow:ellipsis;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  }
+  .nb-card-meta{
+    font-family:var(--mono);
+    font-size:11px;
+    color:#666;
+    margin-top:auto;
+  }
+  .nb-card-actions{
+    position:absolute;
+    top:6px;right:6px;
+    display:flex;gap:3px;
+  }
+  .nb-card-actions button{
+    width:26px;height:26px;border-radius:6px;
+    background:rgba(0,0,0,0.08);
+    color:var(--ink-black);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .nb-card-actions button:hover{background:rgba(0,0,0,0.18);}
+  .nb-card-actions button svg{width:14px;height:14px;}
+  .nb-card-new{
+    background:transparent;
+    border:2px dashed var(--shell-soft);
+    color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;
+    text-align:center;
+    font-size:14px;
+    box-shadow:none;
+  }
+  .nb-card-new:hover{
+    border-color:var(--brass);color:var(--brass-soft);
+    box-shadow:none;transform:translateY(-2px);
+  }
+
+  /* prompt dialog */
+  .nb-prompt-backdrop{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,0.6);
+    z-index:350;
+    display:none;
+    align-items:center;justify-content:center;
+    padding:24px;
+  }
+  .nb-prompt-backdrop.open{display:flex;}
+  .nb-prompt{
+    background:var(--ink-black);
+    border:1px solid var(--shell-soft);
+    border-radius:12px;
+    padding:18px 18px 14px;
+    max-width:360px;width:100%;
+    color:var(--text-light);
+  }
+  .nb-prompt h3{margin:0 0 10px;font-size:16px;font-weight:600;}
+  .nb-prompt p{margin:0 0 12px;font-size:13px;color:var(--text-dim);}
+  .nb-prompt input{
+    width:100%;
+    background:var(--shell-soft);
+    border:1px solid var(--shell-mid);
+    color:var(--text-light);
+    padding:8px 10px;border-radius:6px;
+    font-size:14px;
+    box-sizing:border-box;
+  }
+  .nb-prompt input:focus{outline:none;border-color:var(--brass);}
+  .nb-prompt-actions{
+    display:flex;justify-content:flex-end;gap:8px;margin-top:14px;
+  }
+  .nb-prompt-actions button{
+    padding:7px 14px;border-radius:7px;
+    font-size:13px;font-weight:500;
+  }
+  .nb-prompt-actions .ok{background:var(--brass);color:var(--ink-black);}
+  .nb-prompt-actions .cancel{background:var(--shell-soft);color:var(--text-light);}
+  .nb-prompt-actions .destructive{background:var(--signal-red);color:#fff;}
+
+  .icon-btn.toggle.active{
+    background:var(--brass);
+    color:var(--ink-black);
+  }
+
+  /* ---- pencil long-press popup ---- */
+  #pencil-menu{
+    position:fixed;
+    background:var(--ink-black);
+    border:1px solid var(--shell-soft);
+    border-radius:14px;
+    padding:8px;
+    z-index:200;
+    box-shadow:0 8px 32px rgba(0,0,0,.7);
+    display:none;
+    flex-direction:column;
+    gap:6px;
+    pointer-events:auto;
+  }
+  #pencil-menu.open{display:flex;}
+  #pencil-menu .pm-row{display:flex;gap:5px;}
+  .pm-btn{
+    width:38px;height:38px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--shell-soft);
+    color:var(--text-light);
+    font-family:var(--mono);font-weight:700;font-size:13px;
+    border:1.5px solid transparent;
+    position:relative;
+  }
+  .pm-btn:active{transform:scale(.94);}
+  .pm-btn.active{border-color:var(--brass);background:var(--shell-mid);}
+  .pm-pen-dot{
+    position:absolute;
+    bottom:5px;right:5px;
+    width:10px;height:10px;border-radius:50%;
+    border:1.5px solid var(--ink-black);
+  }
+  .pm-color{
+    width:30px;height:30px;border-radius:50%;
+    border:2px solid var(--shell-mid);
+  }
+  .pm-color.active{border-color:var(--brass);transform:scale(1.1);}
+
+  /* ---- responsive: phones get a bottom rail ---- */
+  @media (max-width:760px){
+    #app{grid-template-columns:1fr;grid-template-rows:1fr 64px;}
+    #toolrail{
+      grid-column:1;flex-direction:row;justify-content:center;
+      padding:6px 8px;border-right:none;border-top:1px solid #000;
+      order:2;gap:4px;overflow-x:auto;overflow-y:hidden;
+    }
+    .rail-divider{width:1px;height:28px;margin:0 4px;}
+    #main{grid-column:1;order:1;}
+    #title-input{max-width:90px;}
+    #size-slider{width:90px;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;animation:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <aside id="toolrail" aria-label="Werkzeuge">
+    <button class="tool-btn" data-tool="pen1" aria-label="Stift 1" title="Stift 1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.1-4.4L15.8 5a1.7 1.7 0 0 1 2.4 0l0.8 0.8a1.7 1.7 0 0 1 0 2.4L8.4 18.9 4 20z"/><path d="M14 6.5l3.5 3.5"/></svg>
+      <span class="pen-dot" data-pen-dot="pen1" style="background:#25344A"></span>
+    </button>
+    <button class="tool-btn" data-tool="pen2" aria-label="Stift 2" title="Stift 2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.1-4.4L15.8 5a1.7 1.7 0 0 1 2.4 0l0.8 0.8a1.7 1.7 0 0 1 0 2.4L8.4 18.9 4 20z"/><path d="M14 6.5l3.5 3.5"/></svg>
+      <span class="pen-dot" data-pen-dot="pen2" style="background:#1B1D1F"></span>
+    </button>
+    <button class="tool-btn" data-tool="pen3" aria-label="Stift 3" title="Stift 3">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.1-4.4L15.8 5a1.7 1.7 0 0 1 2.4 0l0.8 0.8a1.7 1.7 0 0 1 0 2.4L8.4 18.9 4 20z"/><path d="M14 6.5l3.5 3.5"/></svg>
+      <span class="pen-dot" data-pen-dot="pen3" style="background:#B5482F"></span>
+    </button>
+    <div class="rail-divider"></div>
+    <button class="tool-btn" data-tool="marker" aria-label="Textmarker" title="Textmarker">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19h4.2L18 10.2a1.8 1.8 0 0 0 0-2.6l-1.6-1.6a1.8 1.8 0 0 0-2.6 0L5 14.8V19z"/><path d="M12.2 6.8l4 4"/><path d="M5 19l-1 2 2-1"/></svg>
+    </button>
+    <button class="tool-btn" data-tool="eraser" aria-label="Radierer" title="Radierer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 16.5l6-6 6.7 6.7-2.7 2.8H7.2z"/><path d="M9.5 10.5l5-5a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8l-5 5"/><path d="M3.5 20h6.7"/></svg>
+    </button>
+    <button class="tool-btn" data-tool="text" aria-label="Text" title="Text">T</button>
+    <div class="rail-spacer"></div>
+  </aside>
+
+  <div id="main">
+    <header id="topbar">
+      <button class="icon-btn" id="library-btn" aria-label="Fächer öffnen" title="Fächer / Notizbücher">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h6v15H4z"/><path d="M10 5h6v15h-6z"/><path d="M16 5l4 1-2 14-4-1"/></svg>
+      </button>
+      <input id="title-input" value="Mein Notizbuch" aria-label="Notizbuchtitel">
+
+      <div class="group">
+        <button class="icon-btn" id="prev-btn" aria-label="Vorherige Seite" title="Vorherige Seite">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l-8 8 8 8"/></svg>
+        </button>
+        <span id="page-indicator">1 / 1</span>
+        <button class="icon-btn" id="next-btn" aria-label="Nächste Seite" title="Nächste Seite">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4l8 8-8 8"/></svg>
+        </button>
+      </div>
+
+      <div class="group">
+        <button class="icon-btn" id="add-page-btn" aria-label="Seite hinzufügen" title="Seite hinzufügen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M12 8v8M8 12h8"/></svg>
+        </button>
+        <button class="icon-btn danger" id="delete-page-btn" aria-label="Seite löschen" title="Seite löschen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l0.8 13a1 1 0 0 0 1 0.9h7.4a1 1 0 0 0 1-0.9L17.5 7"/></svg>
+        </button>
+      </div>
+
+      <div class="group">
+        <button class="icon-btn" id="undo-btn" aria-label="Rückgängig" title="Rückgängig (Strg+Z)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6L3.5 10.5 8 15"/><path d="M3.5 10.5h11a5.5 5.5 0 0 1 0 11h-1.5"/></svg>
+        </button>
+        <button class="icon-btn" id="redo-btn" aria-label="Wiederholen" title="Wiederholen (Strg+Y)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 6l4.5 4.5L16 15"/><path d="M20.5 10.5h-11a5.5 5.5 0 0 0 0 11h1.5"/></svg>
+        </button>
+      </div>
+
+      <div class="group">
+        <button class="icon-btn" id="import-pdf-btn" aria-label="PDF importieren" title="PDF importieren">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v4h4"/></svg>
+        </button>
+        <button class="icon-btn" id="scan-btn" aria-label="Dokument scannen" title="Dokument scannen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a1 1 0 0 1 1-1h3"/><path d="M21 8V5a1 1 0 0 0-1-1h-3"/><path d="M3 16v3a1 1 0 0 0 1 1h3"/><path d="M21 16v3a1 1 0 0 1-1 1h-3"/><rect x="7" y="8" width="10" height="8" rx="1"/></svg>
+        </button>
+        <button class="icon-btn" id="export-btn" aria-label="Seite als PNG exportieren" title="Seite als PNG exportieren">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M5 19h14"/></svg>
+        </button>
+      </div>
+
+      <div class="group">
+        <button class="icon-btn toggle" id="finger-draw-btn" aria-label="Finger zum Zeichnen" title="Finger zeichnen statt scrollen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M11 9.5V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M14 8.5V6a1.5 1.5 0 0 1 3 0v8c0 4-3 7-7 7-3 0-5-2-6-4l-2.5-5a1.5 1.5 0 0 1 2.5-1.6L7 14V8.5a1.5 1.5 0 0 1 3 0"/></svg>
+        </button>
+        <button class="icon-btn toggle" id="shape-btn" aria-label="Formen erkennen" title="Form-Erkennung (Linien/Kreise begradigen)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="4"/><rect x="13" y="13" width="7" height="7"/><path d="M4 20l4-4"/></svg>
+        </button>
+      </div>
+
+      <div class="topbar-spacer"></div>
+      <span id="status">Lädt…</span>
+      <button class="icon-btn" id="info-btn" aria-label="Hinweise" title="Hinweise">ⓘ</button>
+    </header>
+
+    <div id="subbar">
+      <div id="color-row">
+        <button class="swatch" data-color="#25344A" style="background:#25344A" aria-label="Tintenblau"></button>
+        <button class="swatch" data-color="#1B1D1F" style="background:#1B1D1F" aria-label="Schwarz"></button>
+        <button class="swatch" data-color="#B5482F" style="background:#B5482F" aria-label="Rot"></button>
+        <button class="swatch" data-color="#2F6B4F" style="background:#2F6B4F" aria-label="Grün"></button>
+        <button class="swatch" data-color="#C8862E" style="background:#C8862E" aria-label="Brass"></button>
+        <input type="color" id="custom-color" value="#25344A" aria-label="Eigene Farbe">
+      </div>
+      <div id="size-row">
+        <label for="size-slider">Größe</label>
+        <input type="range" id="size-slider" min="1" max="18" value="3">
+        <span id="size-label">3px</span>
+      </div>
+      <div id="paper-row">
+        <span class="paper-label">Papier</span>
+        <button class="paper-btn" data-paper="blank" title="Blanko" aria-label="Blanko">
+          <span class="paper-preview"></span>
+        </button>
+        <button class="paper-btn" data-paper="dots" title="Punkte" aria-label="Punkte">
+          <span class="paper-preview" style="background:
+            radial-gradient(circle, rgba(40,35,20,0.6) 0.7px, transparent 0.9px) 0 0/6px 6px,
+            var(--paper);"></span>
+        </button>
+        <button class="paper-btn" data-paper="lined" title="Liniert" aria-label="Liniert">
+          <span class="paper-preview" style="background:
+            linear-gradient(to bottom, transparent 5px, rgba(60,80,120,0.6) 5px, rgba(60,80,120,0.6) 6px, transparent 6px) 0 0/100% 7px,
+            var(--paper);"></span>
+        </button>
+        <button class="paper-btn" data-paper="grid" title="Kariert" aria-label="Kariert">
+          <span class="paper-preview" style="background:
+            linear-gradient(to right, rgba(60,80,120,0.5) 1px, transparent 1px) 0 0/6px 6px,
+            linear-gradient(to bottom, rgba(60,80,120,0.5) 1px, transparent 1px) 0 0/6px 6px,
+            var(--paper);"></span>
+        </button>
+      </div>
+    </div>
+
+    <div id="canvas-stage" aria-label="Notizseite">
+      <div id="page-tab">01</div>
+    </div>
+  </div>
+</div>
+
+<div id="info-panel">
+  Eigenbau-Notizbuch im Browser. <b>Bleibt erhalten:</b> alle Seiten, Zeichnungen, Text, PDFs und Scans (Auto-Save lokal).<br><br>
+  <b>Finger scrollt, Stift zeichnet:</b> Default. Über den Fingerknopf umschalten, wenn du mit dem Finger zeichnen willst (dann nicht mehr scrollbar).<br><br>
+  <b>Stift gedrückt halten:</b> Pop-up am Stift mit Werkzeug- und Farbauswahl (~0.45s lang halten).<br><br>
+  <b>Form-Erkennung:</b> Knopf einschalten – nach jedem Strich wird geprüft, ob er aussieht wie eine Linie, ein Kreis oder eine Ellipse, und ggf. begradigt. <b>Achtung:</b> Echte Handschrift-Verschönerung (Buchstaben aufräumen) geht im Browser nicht – das bräuchte ML-Modelle.<br><br>
+  <b>Stifte:</b> Drei Stiftslots, jeder eigene Farbe/Größe.<br><br>
+  <b>Papierstile:</b> Blanko/Punkte/Linien/Karo via CSS – Radierer löscht das Muster nicht.<br><br>
+  <b>Scan:</b> Öffnet die Kamera, Foto wird kontrastiert eingefügt. Keine echte Perspektivkorrektur oder OCR.
+</div>
+
+<div id="library-overlay" aria-hidden="true">
+  <div id="library-header">
+    <h2>Fächer</h2>
+    <button id="library-close" aria-label="Schließen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+    </button>
+  </div>
+  <div id="library-grid"></div>
+</div>
+
+<div id="nb-prompt-backdrop" class="nb-prompt-backdrop">
+  <div class="nb-prompt">
+    <h3 id="nb-prompt-title">Titel</h3>
+    <p id="nb-prompt-desc"></p>
+    <input id="nb-prompt-input" type="text" autocomplete="off">
+    <div class="nb-prompt-actions">
+      <button class="cancel" id="nb-prompt-cancel">Abbrechen</button>
+      <button class="ok" id="nb-prompt-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="pencil-menu">
+  <div class="pm-row">
+    <button class="pm-btn" data-pm-tool="pen1" aria-label="Stift 1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.1-4.4L15.8 5a1.7 1.7 0 0 1 2.4 0l0.8 0.8a1.7 1.7 0 0 1 0 2.4L8.4 18.9 4 20z"/><path d="M14 6.5l3.5 3.5"/></svg>
+      <span class="pm-pen-dot" data-pm-pen-dot="pen1"></span>
+    </button>
+    <button class="pm-btn" data-pm-tool="pen2" aria-label="Stift 2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.1-4.4L15.8 5a1.7 1.7 0 0 1 2.4 0l0.8 0.8a1.7 1.7 0 0 1 0 2.4L8.4 18.9 4 20z"/><path d="M14 6.5l3.5 3.5"/></svg>
+      <span class="pm-pen-dot" data-pm-pen-dot="pen2"></span>
+    </button>
+    <button class="pm-btn" data-pm-tool="pen3" aria-label="Stift 3">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.1-4.4L15.8 5a1.7 1.7 0 0 1 2.4 0l0.8 0.8a1.7 1.7 0 0 1 0 2.4L8.4 18.9 4 20z"/><path d="M14 6.5l3.5 3.5"/></svg>
+      <span class="pm-pen-dot" data-pm-pen-dot="pen3"></span>
+    </button>
+    <button class="pm-btn" data-pm-tool="marker" aria-label="Marker">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19h4.2L18 10.2a1.8 1.8 0 0 0 0-2.6l-1.6-1.6a1.8 1.8 0 0 0-2.6 0L5 14.8V19z"/><path d="M12.2 6.8l4 4"/></svg>
+    </button>
+    <button class="pm-btn" data-pm-tool="eraser" aria-label="Radierer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 16.5l6-6 6.7 6.7-2.7 2.8H7.2z"/><path d="M9.5 10.5l5-5a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8l-5 5"/><path d="M3.5 20h6.7"/></svg>
+    </button>
+  </div>
+  <div class="pm-row">
+    <button class="pm-btn pm-color" data-pm-color="#25344A" style="background:#25344A"></button>
+    <button class="pm-btn pm-color" data-pm-color="#1B1D1F" style="background:#1B1D1F"></button>
+    <button class="pm-btn pm-color" data-pm-color="#B5482F" style="background:#B5482F"></button>
+    <button class="pm-btn pm-color" data-pm-color="#2F6B4F" style="background:#2F6B4F"></button>
+    <button class="pm-btn pm-color" data-pm-color="#C8862E" style="background:#C8862E"></button>
+  </div>
+</div>
+
+<input type="file" id="pdf-input" accept="application/pdf" hidden>
+<input type="file" id="scan-input" accept="image/*" capture="environment" hidden>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<script>
+(function(){
+  "use strict";
+
+  if(window.pdfjsLib){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  // Floor at 2.5x to keep strokes crisp even when the artifact iframe
+  // reports a low devicePixelRatio (common in mobile popup previews).
+  const DPR = Math.max(window.devicePixelRatio || 1, 2.5);
+  const MARKER_ALPHA = 0.42;
+  const DEFAULT_W = 720, DEFAULT_H = 960;
+  const MAX_PDF_LOGICAL_W = 820;
+  const MAX_SCAN_LOGICAL_W = 820;
+  const MAX_UNDO = 25;
+
+  const hasStorage = ("indexedDB" in window);
+
+  // ---------- IndexedDB-based persistence ----------
+  // Two object stores:
+  //   "kv"    — JSON metadata (notebook index, per-notebook meta, app state)
+  //   "pages" — Blob page images, keyed by page id
+  const idb = (() => {
+    const DB_NAME = "notiz-werkstatt";
+    const DB_VER = 1;
+    let _db = null;
+
+    function open(){
+      if(_db) return Promise.resolve(_db);
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VER);
+        req.onupgradeneeded = (e) => {
+          const d = e.target.result;
+          if(!d.objectStoreNames.contains("kv")) d.createObjectStore("kv");
+          if(!d.objectStoreNames.contains("pages")) d.createObjectStore("pages");
+        };
+        req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
+        req.onerror  = (e) => reject(e.target.error);
+      });
+    }
+
+    function tx(store, mode){
+      return open().then(d => d.transaction(store, mode).objectStore(store));
+    }
+
+    return {
+      async kvGet(key){
+        try{
+          const store = await tx("kv", "readonly");
+          return new Promise((res, rej) => {
+            const r = store.get(key);
+            r.onsuccess = () => res(r.result === undefined ? null : r.result);
+            r.onerror   = () => rej(r.error);
+          });
+        }catch(e){ return null; }
+      },
+      async kvSet(key, value){
+        try{
+          const store = await tx("kv", "readwrite");
+          return new Promise((res, rej) => {
+            const r = store.put(value, key);
+            r.onsuccess = () => res(true);
+            r.onerror   = () => rej(r.error);
+          });
+        }catch(e){ return false; }
+      },
+      async kvDel(key){
+        try{
+          const store = await tx("kv", "readwrite");
+          return new Promise((res) => {
+            const r = store.delete(key);
+            r.onsuccess = () => res();
+            r.onerror   = () => res();
+          });
+        }catch(e){ /* ignore */ }
+      },
+      async pageGet(id){
+        try{
+          const store = await tx("pages", "readonly");
+          return new Promise((res) => {
+            const r = store.get(id);
+            r.onsuccess = () => res(r.result || null);
+            r.onerror   = () => res(null);
+          });
+        }catch(e){ return null; }
+      },
+      async pagePut(id, blob){
+        try{
+          const store = await tx("pages", "readwrite");
+          return new Promise((res, rej) => {
+            const r = store.put(blob, id);
+            r.onsuccess = () => res(true);
+            r.onerror   = () => rej(r.error);
+          });
+        }catch(e){ return false; }
+      },
+      async pageDel(id){
+        try{
+          const store = await tx("pages", "readwrite");
+          return new Promise((res) => {
+            const r = store.delete(id);
+            r.onsuccess = () => res();
+            r.onerror   = () => res();
+          });
+        }catch(e){ /* ignore */ }
+      }
+    };
+  })();
+
+  // ---------- notebook helpers ----------
+  // Key layout in the kv store:
+  //   "notebook-index"   → string[] of notebook ids (ordering matters)
+  //   "notebook/<id>"    → { id, title, defaultPaperStyle, currentPageIndex,
+  //                          pages: [{ id, W, H, paperStyle }], updatedAt }
+  //   "app-state"        → { lastNotebookId }
+  async function loadNotebookIndex(){
+    const v = await idb.kvGet("notebook-index");
+    return Array.isArray(v) ? v.slice() : [];
+  }
+  async function saveNotebookIndex(ids){
+    return idb.kvSet("notebook-index", ids);
+  }
+  async function loadNotebookMeta(id){
+    return idb.kvGet("notebook/" + id);
+  }
+  async function saveNotebookMeta(meta){
+    meta.updatedAt = Date.now();
+    return idb.kvSet("notebook/" + meta.id, meta);
+  }
+  async function deleteNotebookMeta(id){
+    return idb.kvDel("notebook/" + id);
+  }
+  async function loadAppState(){
+    return (await idb.kvGet("app-state")) || {};
+  }
+  async function saveAppState(s){
+    return idb.kvSet("app-state", s);
+  }
+  function canvasToBlob(canvas, isImage){
+    return new Promise((resolve) => {
+      const type = isImage ? "image/jpeg" : "image/png";
+      const quality = isImage ? 0.85 : undefined;
+      if(canvas.toBlob){
+        canvas.toBlob(b => resolve(b), type, quality);
+      } else {
+        // Fallback for ancient browsers
+        const url = canvas.toDataURL(type, quality);
+        fetch(url).then(r => r.blob()).then(resolve);
+      }
+    });
+  }
+  function blobToImage(blob){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload  = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      img.src = url;
+    });
+  }
+  function uidNotebook(){
+    return "nb-" + (window.crypto && window.crypto.randomUUID
+      ? window.crypto.randomUUID().slice(0, 8)
+      : Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+  }
+
+  const stage = document.getElementById("canvas-stage");
+  const pageTabEl = document.getElementById("page-tab");
+  const statusEl = document.getElementById("status");
+  const pageIndicatorEl = document.getElementById("page-indicator");
+  const titleInput = document.getElementById("title-input");
+  const prevBtn = document.getElementById("prev-btn");
+  const nextBtn = document.getElementById("next-btn");
+  const undoBtn = document.getElementById("undo-btn");
+  const redoBtn = document.getElementById("redo-btn");
+  const addPageBtn = document.getElementById("add-page-btn");
+  const deletePageBtn = document.getElementById("delete-page-btn");
+  const importPdfBtn = document.getElementById("import-pdf-btn");
+  const pdfInput = document.getElementById("pdf-input");
+  const scanBtn = document.getElementById("scan-btn");
+  const scanInput = document.getElementById("scan-input");
+  const exportBtn = document.getElementById("export-btn");
+  const infoBtn = document.getElementById("info-btn");
+  const infoPanel = document.getElementById("info-panel");
+  const colorRow = document.getElementById("color-row");
+  const customColorInput = document.getElementById("custom-color");
+  const sizeSlider = document.getElementById("size-slider");
+  const sizeLabel = document.getElementById("size-label");
+  const toolButtons = Array.from(document.querySelectorAll(".tool-btn"));
+  const swatches = Array.from(document.querySelectorAll(".swatch"));
+  const paperButtons = Array.from(document.querySelectorAll(".paper-btn"));
+  const fingerDrawBtn = document.getElementById("finger-draw-btn");
+  const shapeBtn = document.getElementById("shape-btn");
+  const pencilMenu = document.getElementById("pencil-menu");
+  const pmToolButtons = Array.from(document.querySelectorAll("[data-pm-tool]"));
+  const pmColorButtons = Array.from(document.querySelectorAll("[data-pm-color]"));
+  const libraryBtn = document.getElementById("library-btn");
+  const libraryOverlay = document.getElementById("library-overlay");
+  const libraryClose = document.getElementById("library-close");
+  const libraryGrid = document.getElementById("library-grid");
+
+  const PAPER_STYLES = ["blank", "dots", "lined", "grid", "image"];
+  const EDITABLE_PAPER_STYLES = ["blank", "dots", "lined", "grid"];
+
+  const state = {
+    tool: "pen1",
+    notebookTitle: "Mein Notizbuch",
+    currentIndex: 0,
+    defaultPaperStyle: "dots",
+    currentNotebookId: null
+  };
+
+  const toolSettings = {
+    pen1:   { color: "#25344A", size: 3 },
+    pen2:   { color: "#1B1D1F", size: 2 },
+    pen3:   { color: "#B5482F", size: 5 },
+    marker: { color: "#C8862E", size: 18 },
+    eraser: { size: 16 },
+    text:   { color: "#25344A", size: 22 }
+  };
+
+  let pages = [];
+  let drawing = false;
+  let activePointerId = null;
+  let activePointerType = null;
+  let strokePoints = [];
+  let deleteArmed = false;
+  let deleteArmTimer = null;
+  let fingerDrawEnabled = false;
+  let shapeRecognitionEnabled = false;
+  let pencilHoldTimer = null;
+  let pencilHoldStart = null;
+  const PENCIL_HOLD_MS = 450;
+  const PENCIL_HOLD_MOVE_THRESHOLD = 8;
+
+  function uid(){
+    return (window.crypto && window.crypto.randomUUID)
+      ? window.crypto.randomUUID()
+      : "id-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+  }
+
+  function debounce(fn, ms){
+    let t;
+    return function(...args){
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(null, args), ms);
+    };
+  }
+
+  function setStatus(text){ statusEl.textContent = text; }
+
+  function currentPage(){ return pages[state.currentIndex]; }
+
+  function isPenTool(t){ return t === "pen1" || t === "pen2" || t === "pen3"; }
+
+  // ---------- save scheduling ----------
+  const saveTimers = new Map();
+  async function performPageSave(pageObj){
+    const isImage = pageObj.paperStyle === "image";
+    const blob = await canvasToBlob(pageObj.canvas, isImage);
+    if(!blob) return false;
+    return idb.pagePut(pageObj.id, blob);
+  }
+  function schedulePageSave(pageObj){
+    setStatus("Speichert…");
+    clearTimeout(saveTimers.get(pageObj.id));
+    const t = setTimeout(async () => {
+      const ok = await performPageSave(pageObj);
+      setStatus(ok || !hasStorage ? "Gespeichert" : "Speichern fehlgeschlagen");
+    }, 600);
+    saveTimers.set(pageObj.id, t);
+  }
+
+  const saveMetaDebounced = debounce(async () => {
+    if(!state.currentNotebookId) return;
+    const meta = {
+      id: state.currentNotebookId,
+      title: state.notebookTitle,
+      defaultPaperStyle: state.defaultPaperStyle,
+      currentPageIndex: state.currentIndex,
+      pages: pages.map(p => ({ id: p.id, W: p.W, H: p.H, paperStyle: p.paperStyle }))
+    };
+    await saveNotebookMeta(meta);
+  }, 500);
+
+  // ---------- page creation ----------
+  function applyPaperStyleClass(pageObj){
+    const c = pageObj.canvas;
+    PAPER_STYLES.forEach(s => c.classList.remove("paper-" + s));
+    c.classList.add("paper-" + pageObj.paperStyle);
+  }
+
+  function createPageCanvas(W, H, paperStyle){
+    const canvas = document.createElement("canvas");
+    canvas.className = "page-canvas";
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.scale(DPR, DPR);
+    const pageObj = {
+      id: uid(), canvas, ctx, W, H,
+      paperStyle: paperStyle || "blank",
+      undoStack: [], redoStack: [], _strokeBaseline: null
+    };
+    applyPaperStyleClass(pageObj);
+    if(fingerDrawEnabled) canvas.classList.add("finger-draw");
+    stage.appendChild(canvas);
+    attachPointerHandlers(pageObj);
+    return pageObj;
+  }
+
+  function setPagePaperStyle(pageObj, newStyle){
+    if(!EDITABLE_PAPER_STYLES.includes(newStyle)) return;
+    if(pageObj.paperStyle === "image"){
+      setStatus("PDF-/Scan-Seiten haben festes Papier");
+      return;
+    }
+    pageObj.paperStyle = newStyle;
+    applyPaperStyleClass(pageObj);
+    renderPaperUI();
+    saveMetaDebounced();
+  }
+
+  async function drawBlobToCanvas(blob, pageObj){
+    if(!blob) return;
+    try{
+      const img = await blobToImage(blob);
+      pageObj.ctx.clearRect(0, 0, pageObj.W, pageObj.H);
+      pageObj.ctx.drawImage(img, 0, 0, pageObj.W, pageObj.H);
+    }catch(e){ /* ignore broken image */ }
+  }
+
+  // ---------- undo / redo ----------
+  function pushUndo(pageObj, baselineImageData){
+    pageObj.undoStack.push(baselineImageData);
+    if(pageObj.undoStack.length > MAX_UNDO) pageObj.undoStack.shift();
+    pageObj.redoStack = [];
+    updateUndoRedoButtons();
+  }
+
+  function undo(){
+    const p = currentPage();
+    if(!p || !p.undoStack.length) return;
+    const cur = p.ctx.getImageData(0, 0, p.canvas.width, p.canvas.height);
+    p.redoStack.push(cur);
+    const prev = p.undoStack.pop();
+    p.ctx.putImageData(prev, 0, 0);
+    schedulePageSave(p);
+    updateUndoRedoButtons();
+  }
+
+  function redo(){
+    const p = currentPage();
+    if(!p || !p.redoStack.length) return;
+    const cur = p.ctx.getImageData(0, 0, p.canvas.width, p.canvas.height);
+    p.undoStack.push(cur);
+    const next = p.redoStack.pop();
+    p.ctx.putImageData(next, 0, 0);
+    schedulePageSave(p);
+    updateUndoRedoButtons();
+  }
+
+  function updateUndoRedoButtons(){
+    const p = currentPage();
+    undoBtn.disabled = !p || !p.undoStack.length;
+    redoBtn.disabled = !p || !p.redoStack.length;
+  }
+
+  // ---------- drawing ----------
+  function getPos(e, pageObj){
+    const rect = pageObj.canvas.getBoundingClientRect();
+    const scaleX = pageObj.W / rect.width;
+    const scaleY = pageObj.H / rect.height;
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+  }
+
+  function configureContextForTool(ctx){
+    if(isPenTool(state.tool)){
+      const s = toolSettings[state.tool];
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = s.size;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+    } else if(state.tool === "marker"){
+      // Drawn onto a per-stroke offscreen at full alpha — composited
+      // to main with MARKER_ALPHA below, which prevents overlap build-up.
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = toolSettings.marker.color;
+      ctx.lineWidth = toolSettings.marker.size;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+    } else if(state.tool === "eraser"){
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+      ctx.lineWidth = toolSettings.eraser.size;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+    }
+  }
+
+  function smoothDrawSegment(ctx, points){
+    const n = points.length;
+    if(n < 3){
+      const p = points[n - 1];
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      return;
+    }
+    const p0 = points[n - 3], p1 = points[n - 2], p2 = points[n - 1];
+    const mid1 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+    const mid2 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    ctx.beginPath();
+    ctx.moveTo(mid1.x, mid1.y);
+    ctx.quadraticCurveTo(p1.x, p1.y, mid2.x, mid2.y);
+    ctx.stroke();
+  }
+
+  function beginStroke(e, pageObj){
+    pageObj._strokeBaseline = pageObj.ctx.getImageData(0, 0, pageObj.canvas.width, pageObj.canvas.height);
+    drawing = true;
+    strokePoints = [];
+
+    if(state.tool === "marker"){
+      // Per-stroke offscreen canvas so highlighter doesn't darken on overlap.
+      const off = document.createElement("canvas");
+      off.width = pageObj.canvas.width;
+      off.height = pageObj.canvas.height;
+      const offctx = off.getContext("2d");
+      offctx.scale(DPR, DPR);
+      pageObj._strokeOffscreen = off;
+      pageObj._strokeOffscreenCtx = offctx;
+      configureContextForTool(offctx);
+    } else {
+      configureContextForTool(pageObj.ctx);
+    }
+
+    const pos = getPos(e, pageObj);
+    strokePoints.push(pos);
+    pageObj._lastMoveT = e.timeStamp || performance.now();
+    pageObj._smoothedWidth = null;
+
+    const drawCtx = (state.tool === "marker") ? pageObj._strokeOffscreenCtx : pageObj.ctx;
+    drawCtx.beginPath();
+    drawCtx.moveTo(pos.x, pos.y);
+  }
+
+  function cancelCurrentStroke(pageObj){
+    if(pageObj._strokeBaseline){
+      pageObj.ctx.putImageData(pageObj._strokeBaseline, 0, 0);
+      pageObj._strokeBaseline = null;
+    }
+    pageObj._strokeOffscreen = null;
+    pageObj._strokeOffscreenCtx = null;
+    pageObj._smoothedWidth = null;
+    drawing = false;
+    activePointerId = null;
+    activePointerType = null;
+  }
+
+  function openTextEditor(e, pageObj){
+    const pos = getPos(e, pageObj);
+    const settings = toolSettings.text;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "text-edit-input";
+    input.style.left = e.clientX + "px";
+    input.style.top = (e.clientY - 16) + "px";
+    input.style.font = settings.size + "px " + getComputedStyle(document.body).fontFamily;
+    input.style.color = settings.color;
+    document.body.appendChild(input);
+    requestAnimationFrame(() => input.focus());
+
+    let committed = false;
+    function commit(){
+      if(committed) return;
+      committed = true;
+      const text = input.value.trim();
+      if(text){
+        const baseline = pageObj.ctx.getImageData(0, 0, pageObj.canvas.width, pageObj.canvas.height);
+        pageObj.ctx.font = settings.size + "px Inter, sans-serif";
+        pageObj.ctx.fillStyle = settings.color;
+        pageObj.ctx.textBaseline = "top";
+        pageObj.ctx.fillText(text, pos.x, pos.y - settings.size * 0.1);
+        pushUndo(pageObj, baseline);
+        schedulePageSave(pageObj);
+      }
+      input.remove();
+    }
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", (ev) => {
+      if(ev.key === "Enter"){ ev.preventDefault(); input.blur(); }
+      if(ev.key === "Escape"){ committed = true; input.remove(); }
+    });
+  }
+
+  function onPointerDown(e, pageObj){
+    if(pageObj.canvas !== currentPage().canvas) return;
+    if(e.pointerType === "touch" && !fingerDrawEnabled){
+      // Browser handles scroll/pan
+      return;
+    }
+    if(activePointerId !== null){
+      if(activePointerType === "pen") return;
+      if(e.pointerType === "pen"){ cancelCurrentStroke(pageObj); }
+      else return;
+    }
+    e.preventDefault();
+    if(state.tool === "text"){
+      openTextEditor(e, pageObj);
+      return;
+    }
+
+    if(e.pointerType === "pen"){
+      // Start long-press timer for quick tool menu near tip
+      pencilHoldStart = { x: e.clientX, y: e.clientY };
+      pencilHoldTimer = setTimeout(() => {
+        pencilHoldTimer = null;
+        cancelCurrentStroke(pageObj);
+        showPencilMenu(pencilHoldStart.x, pencilHoldStart.y);
+      }, PENCIL_HOLD_MS);
+    }
+
+    activePointerId = e.pointerId;
+    activePointerType = e.pointerType;
+    beginStroke(e, pageObj);
+  }
+
+  function onPointerMove(e, pageObj){
+    if(!drawing || e.pointerId !== activePointerId) return;
+    if(pencilHoldTimer && pencilHoldStart){
+      const ddx = e.clientX - pencilHoldStart.x;
+      const ddy = e.clientY - pencilHoldStart.y;
+      if(ddx*ddx + ddy*ddy > PENCIL_HOLD_MOVE_THRESHOLD*PENCIL_HOLD_MOVE_THRESHOLD){
+        clearTimeout(pencilHoldTimer);
+        pencilHoldTimer = null;
+      }
+    }
+    e.preventDefault();
+    const pos = getPos(e, pageObj);
+    const now = e.timeStamp || performance.now();
+
+    if(isPenTool(state.tool)){
+      const baseSize = toolSettings[state.tool].size;
+      let width;
+      if(e.pointerType === "pen" && typeof e.pressure === "number" && e.pressure > 0 && e.pressure < 0.99){
+        // Real pressure from stylus
+        width = baseSize * (0.4 + e.pressure * 1.0);
+      } else {
+        // Velocity-based fallback for finger/mouse: slow → thicker, fast → thinner.
+        const lastPos = strokePoints[strokePoints.length - 1];
+        const dx = pos.x - lastPos.x;
+        const dy = pos.y - lastPos.y;
+        const dt = Math.max(1, now - (pageObj._lastMoveT || now));
+        const speed = Math.sqrt(dx*dx + dy*dy) / dt; // logical px/ms
+        const speedFactor = Math.max(0.55, 1.35 - Math.min(speed, 1.5) * 0.55);
+        const target = baseSize * speedFactor;
+        pageObj._smoothedWidth = pageObj._smoothedWidth == null
+          ? target
+          : pageObj._smoothedWidth * 0.7 + target * 0.3;
+        width = pageObj._smoothedWidth;
+      }
+      pageObj.ctx.lineWidth = width;
+    }
+    pageObj._lastMoveT = now;
+
+    if(state.tool === "marker"){
+      // Draw segment to offscreen at full opacity, then re-composite
+      // the entire stroke onto main at MARKER_ALPHA — no overlap darkening.
+      strokePoints.push(pos);
+      smoothDrawSegment(pageObj._strokeOffscreenCtx, strokePoints);
+      pageObj.ctx.putImageData(pageObj._strokeBaseline, 0, 0);
+      pageObj.ctx.save();
+      pageObj.ctx.globalCompositeOperation = "source-over";
+      pageObj.ctx.globalAlpha = MARKER_ALPHA;
+      pageObj.ctx.drawImage(pageObj._strokeOffscreen, 0, 0, pageObj.W, pageObj.H);
+      pageObj.ctx.restore();
+    } else {
+      strokePoints.push(pos);
+      smoothDrawSegment(pageObj.ctx, strokePoints);
+    }
+  }
+
+  function onPointerUp(e, pageObj){
+    if(e.pointerId !== activePointerId) return;
+    if(pencilHoldTimer){
+      clearTimeout(pencilHoldTimer);
+      pencilHoldTimer = null;
+    }
+    drawing = false;
+
+    // Shape recognition replaces the just-drawn stroke if it looks like a shape
+    if(shapeRecognitionEnabled
+        && isPenTool(state.tool)
+        && strokePoints.length >= 6
+        && pageObj._strokeBaseline){
+      const shape = detectShape(strokePoints);
+      if(shape){
+        pageObj.ctx.putImageData(pageObj._strokeBaseline, 0, 0);
+        configureContextForTool(pageObj.ctx);
+        pageObj.ctx.lineWidth = toolSettings[state.tool].size;
+        pageObj.ctx.beginPath();
+        if(shape.type === "line"){
+          pageObj.ctx.moveTo(shape.from.x, shape.from.y);
+          pageObj.ctx.lineTo(shape.to.x, shape.to.y);
+        } else if(shape.type === "circle"){
+          pageObj.ctx.arc(shape.cx, shape.cy, shape.r, 0, 2*Math.PI);
+        } else if(shape.type === "ellipse"){
+          pageObj.ctx.ellipse(shape.cx, shape.cy, shape.rx, shape.ry, 0, 0, 2*Math.PI);
+        }
+        pageObj.ctx.stroke();
+        setStatus("Form erkannt: " + shape.type);
+      }
+    }
+
+    if(pageObj._strokeBaseline){
+      pushUndo(pageObj, pageObj._strokeBaseline);
+      pageObj._strokeBaseline = null;
+    }
+    pageObj._strokeOffscreen = null;
+    pageObj._strokeOffscreenCtx = null;
+    pageObj._smoothedWidth = null;
+    activePointerId = null;
+    activePointerType = null;
+    schedulePageSave(pageObj);
+  }
+
+  function attachPointerHandlers(pageObj){
+    const c = pageObj.canvas;
+    c.addEventListener("pointerdown", e => onPointerDown(e, pageObj));
+    c.addEventListener("pointermove", e => onPointerMove(e, pageObj));
+    c.addEventListener("pointerup", e => onPointerUp(e, pageObj));
+    c.addEventListener("pointercancel", e => onPointerUp(e, pageObj));
+    c.addEventListener("pointerleave", e => { if(e.pointerId === activePointerId) onPointerUp(e, pageObj); });
+  }
+
+  // ---------- page navigation ----------
+  function positionPageTab(p){
+    if(!p) return;
+    requestAnimationFrame(() => {
+      pageTabEl.textContent = String(state.currentIndex + 1).padStart(2, "0");
+      pageTabEl.style.top = (p.canvas.offsetTop + 16) + "px";
+      pageTabEl.style.left = (p.canvas.offsetLeft + p.canvas.offsetWidth) + "px";
+    });
+  }
+
+  function switchPage(i){
+    if(i < 0 || i >= pages.length) return;
+    pages.forEach(p => p.canvas.classList.remove("active"));
+    state.currentIndex = i;
+    const p = pages[i];
+    p.canvas.classList.add("active");
+    pageIndicatorEl.textContent = (i + 1) + " / " + pages.length;
+    prevBtn.disabled = i === 0;
+    nextBtn.disabled = i === pages.length - 1;
+    updateUndoRedoButtons();
+    renderPaperUI();
+    positionPageTab(p);
+    saveMetaDebounced();
+  }
+
+  function addBlankPage(){
+    const pageObj = createPageCanvas(DEFAULT_W, DEFAULT_H, state.defaultPaperStyle);
+    const insertIndex = pages.length ? state.currentIndex + 1 : 0;
+    pages.splice(insertIndex, 0, pageObj);
+    switchPage(insertIndex);
+    schedulePageSave(pageObj);
+  }
+
+  function deleteCurrentPage(){
+    if(pages.length <= 1){
+      setStatus("Mindestens eine Seite muss bleiben");
+      return;
+    }
+    const idx = state.currentIndex;
+    const [removed] = pages.splice(idx, 1);
+    removed.canvas.remove();
+    idb.pageDel(removed.id);
+    const newIndex = Math.min(idx, pages.length - 1);
+    switchPage(newIndex);
+  }
+
+  // ---------- PDF import ----------
+  async function handlePdfFile(file){
+    if(!window.pdfjsLib){
+      setStatus("PDF-Engine nicht geladen");
+      return;
+    }
+    try{
+      setStatus("PDF wird geladen…");
+      const buf = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      let firstNew = -1;
+      for(let i = 1; i <= pdf.numPages; i++){
+        setStatus("Importiere Seite " + i + "/" + pdf.numPages + "…");
+        const pdfPage = await pdf.getPage(i);
+        const base = pdfPage.getViewport({ scale: 1 });
+        const scale = (MAX_PDF_LOGICAL_W / base.width) * DPR;
+        const viewport = pdfPage.getViewport({ scale });
+        const off = document.createElement("canvas");
+        off.width = Math.ceil(viewport.width);
+        off.height = Math.ceil(viewport.height);
+        await pdfPage.render({ canvasContext: off.getContext("2d"), viewport }).promise;
+        const logicalW = viewport.width / DPR, logicalH = viewport.height / DPR;
+        const pageObj = createPageCanvas(logicalW, logicalH, "image");
+        pageObj.ctx.fillStyle = "#FFFFFF";
+        pageObj.ctx.fillRect(0, 0, logicalW, logicalH);
+        pageObj.ctx.drawImage(off, 0, 0, logicalW, logicalH);
+        pages.push(pageObj);
+        if(firstNew === -1) firstNew = pages.length - 1;
+        await performPageSave(pageObj);
+      }
+      state.currentIndex = firstNew;
+      switchPage(firstNew);
+      saveMetaDebounced();
+      setStatus("Gespeichert");
+    }catch(err){
+      console.error(err);
+      setStatus("PDF-Import fehlgeschlagen");
+    }
+  }
+
+  // ---------- Scan / photo import ----------
+  function loadImage(src){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  // Decode camera photo at a memory-safe resolution. Phone cameras
+  // shoot 12-48 MP — decoding at full size easily blows iOS Safari's
+  // ~256 MB iframe limit and looks like "the app closes".
+  async function loadScanSource(file){
+    if(typeof createImageBitmap === "function"){
+      try{
+        const bitmap = await createImageBitmap(file, {
+          resizeWidth: 1400,
+          resizeQuality: "high"
+        });
+        return {
+          source: bitmap, isBitmap: true,
+          width: bitmap.width, height: bitmap.height
+        };
+      }catch(e){ /* fall through to Image */ }
+    }
+    const objectURL = URL.createObjectURL(file);
+    try{
+      const img = await loadImage(objectURL);
+      return {
+        source: img, isBitmap: false, objectURL,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height
+      };
+    }catch(e){
+      URL.revokeObjectURL(objectURL);
+      throw e;
+    }
+  }
+
+  function releaseScanSource(s){
+    if(!s) return;
+    if(s.isBitmap){
+      try{ s.source.close(); }catch(e){}
+    } else {
+      if(s.objectURL){ try{ URL.revokeObjectURL(s.objectURL); }catch(e){} }
+      try{ s.source.src = ""; }catch(e){}
+    }
+  }
+
+  async function handleScanFile(file){
+    let scanSrc = null;
+    try{
+      setStatus("Bild wird verarbeitet…");
+      scanSrc = await loadScanSource(file);
+
+      const aspect = scanSrc.height / scanSrc.width;
+      const logicalW = Math.min(MAX_SCAN_LOGICAL_W, scanSrc.width);
+      const logicalH = Math.round(logicalW * aspect);
+
+      const pageObj = createPageCanvas(logicalW, logicalH, "image");
+      const ctx = pageObj.ctx;
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, logicalW, logicalH);
+
+      let filterApplied = false;
+      try{
+        ctx.filter = "contrast(1.32) brightness(1.05) saturate(0.6)";
+        filterApplied = !!ctx.filter && ctx.filter !== "none";
+      }catch(e){ filterApplied = false; }
+
+      ctx.drawImage(scanSrc.source, 0, 0, logicalW, logicalH);
+      ctx.filter = "none";
+
+      // Free the source bitmap/image immediately — important on mobile.
+      releaseScanSource(scanSrc);
+      scanSrc = null;
+
+      pages.push(pageObj);
+      const newIdx = pages.length - 1;
+      await performPageSave(pageObj);
+      switchPage(newIdx);
+      saveMetaDebounced();
+      setStatus(filterApplied ? "Gespeichert" : "Gespeichert (ohne Filter)");
+    }catch(err){
+      console.error(err);
+      if(scanSrc) releaseScanSource(scanSrc);
+      const msg = (err && err.message) ? err.message : "Unbekannter Fehler";
+      setStatus("Scan fehlgeschlagen: " + msg);
+    }
+  }
+
+  function exportCurrentPage(){
+    const p = currentPage();
+    if(!p) return;
+
+    // composite paper background + canvas content into one image for export
+    const out = document.createElement("canvas");
+    out.width = p.canvas.width;
+    out.height = p.canvas.height;
+    const octx = out.getContext("2d");
+
+    // draw paper color background (always)
+    octx.fillStyle = "#FBF7EF";
+    octx.fillRect(0, 0, out.width, out.height);
+
+    // draw paper pattern for blank/dots/lined/grid styles
+    drawPaperPatternToContext(octx, p.W, p.H, p.paperStyle, DPR);
+
+    // draw canvas content on top
+    octx.drawImage(p.canvas, 0, 0);
+
+    const link = document.createElement("a");
+    const safeTitle = (state.notebookTitle || "Notiz").replace(/[^a-z0-9äöüß_-]+/gi, "_");
+    link.download = safeTitle + "-seite-" + (state.currentIndex + 1) + ".png";
+    link.href = out.toDataURL("image/png");
+    link.click();
+  }
+
+  function drawPaperPatternToContext(ctx, W, H, paperStyle, scale){
+    ctx.save();
+    ctx.scale(scale, scale);
+    if(paperStyle === "dots"){
+      ctx.fillStyle = "rgba(40,35,20,0.20)";
+      const step = 24;
+      for(let y = step; y < H; y += step){
+        for(let x = step; x < W; x += step){
+          ctx.beginPath();
+          ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else if(paperStyle === "lined"){
+      ctx.strokeStyle = "rgba(60,80,120,0.28)";
+      ctx.lineWidth = 1;
+      for(let y = 32; y < H; y += 28){
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+    } else if(paperStyle === "grid"){
+      ctx.strokeStyle = "rgba(60,80,120,0.22)";
+      ctx.lineWidth = 1;
+      for(let x = 24; x < W; x += 24){
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+      for(let y = 24; y < H; y += 24){
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // ---------- shape recognition ----------
+  function detectShape(points){
+    if(points.length < 6) return null;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for(const p of points){
+      if(p.x < minX) minX = p.x;
+      if(p.y < minY) minY = p.y;
+      if(p.x > maxX) maxX = p.x;
+      if(p.y > maxY) maxY = p.y;
+    }
+    const bw = maxX - minX, bh = maxY - minY;
+    const bboxDiag = Math.sqrt(bw*bw + bh*bh);
+    if(bboxDiag < 40) return null;
+
+    const first = points[0], last = points[points.length - 1];
+    const closingDist = Math.sqrt((first.x-last.x)**2 + (first.y-last.y)**2);
+
+    // Closed shape → circle / ellipse
+    if(closingDist < bboxDiag * 0.22){
+      let cx = 0, cy = 0;
+      for(const p of points){ cx += p.x; cy += p.y; }
+      cx /= points.length; cy /= points.length;
+      const dists = points.map(p => Math.sqrt((p.x-cx)**2 + (p.y-cy)**2));
+      const meanR = dists.reduce((a,b) => a+b, 0) / dists.length;
+      let variance = 0;
+      for(const d of dists){ variance += (d - meanR)**2; }
+      const stddev = Math.sqrt(variance / dists.length);
+      const aspect = bw / bh;
+
+      if(stddev / meanR < 0.18 && aspect > 0.78 && aspect < 1.28){
+        return { type: "circle", cx, cy, r: meanR };
+      }
+      // Ellipse fallback for stretched ovals
+      if(stddev / meanR < 0.32){
+        return {
+          type: "ellipse",
+          cx: (minX + maxX) / 2,
+          cy: (minY + maxY) / 2,
+          rx: bw / 2,
+          ry: bh / 2
+        };
+      }
+      return null;
+    }
+
+    // Open shape → straight line
+    const lineLen = closingDist;
+    if(lineLen < 30) return null;
+    let maxPerp = 0;
+    for(const p of points){
+      const t = ((p.x - first.x)*(last.x - first.x) + (p.y - first.y)*(last.y - first.y)) / (lineLen*lineLen);
+      const closestX = first.x + t*(last.x - first.x);
+      const closestY = first.y + t*(last.y - first.y);
+      const d = Math.sqrt((p.x - closestX)**2 + (p.y - closestY)**2);
+      if(d > maxPerp) maxPerp = d;
+    }
+    if(maxPerp / lineLen < 0.08){
+      return { type: "line", from: first, to: last };
+    }
+    return null;
+  }
+
+  // ---------- pencil quick menu ----------
+  function showPencilMenu(x, y){
+    pencilMenu.classList.add("open");
+    const rect = pencilMenu.getBoundingClientRect();
+    const pad = 12;
+    let left = x + 18;
+    let top  = y - rect.height / 2;
+    if(left + rect.width > window.innerWidth - pad) left = x - rect.width - 18;
+    if(left < pad) left = pad;
+    if(top < pad) top = pad;
+    if(top + rect.height > window.innerHeight - pad) top = window.innerHeight - rect.height - pad;
+    pencilMenu.style.left = left + "px";
+    pencilMenu.style.top  = top + "px";
+    updatePencilMenuActiveStates();
+  }
+  function hidePencilMenu(){
+    pencilMenu.classList.remove("open");
+  }
+  function updatePencilMenuActiveStates(){
+    pmToolButtons.forEach(b => b.classList.toggle("active", b.dataset.pmTool === state.tool));
+    const curColor = (state.tool === "eraser") ? null : toolSettings[state.tool] && toolSettings[state.tool].color;
+    pmColorButtons.forEach(b => {
+      b.classList.toggle("active", curColor && b.dataset.pmColor.toLowerCase() === curColor.toLowerCase());
+    });
+    // sync pen dot colors
+    ["pen1","pen2","pen3"].forEach(k => {
+      const dot = pencilMenu.querySelector('[data-pm-pen-dot="' + k + '"]');
+      if(dot) dot.style.background = toolSettings[k].color;
+    });
+  }
+
+  function applyFingerDrawClassToAllPages(){
+    document.querySelectorAll(".page-canvas").forEach(c => {
+      c.classList.toggle("finger-draw", fingerDrawEnabled);
+    });
+  }
+
+  // ---------- tool / paper UI ----------
+  function renderToolUI(){
+    toolButtons.forEach(btn => btn.classList.toggle("active", btn.dataset.tool === state.tool));
+    const showColor = state.tool !== "eraser";
+    colorRow.style.display = showColor ? "flex" : "none";
+    if(showColor){
+      const settings = toolSettings[state.tool];
+      swatches.forEach(s => s.classList.toggle("active", s.dataset.color.toLowerCase() === settings.color.toLowerCase()));
+      customColorInput.value = settings.color;
+    }
+    let min = 1, max = 18;
+    if(state.tool === "marker"){ min = 8; max = 40; }
+    else if(state.tool === "eraser"){ min = 6; max = 50; }
+    else if(state.tool === "text"){ min = 12; max = 48; }
+    sizeSlider.min = min; sizeSlider.max = max;
+    sizeSlider.value = toolSettings[state.tool].size;
+    sizeLabel.textContent = toolSettings[state.tool].size + "px";
+
+    // update pen dot colors
+    ["pen1","pen2","pen3"].forEach(k => {
+      const dot = document.querySelector('[data-pen-dot="' + k + '"]');
+      if(dot) dot.style.background = toolSettings[k].color;
+    });
+  }
+
+  function renderPaperUI(){
+    const p = currentPage();
+    const cur = p ? p.paperStyle : null;
+    const locked = (cur === "image");
+    paperButtons.forEach(b => {
+      const isCurrent = b.dataset.paper === cur;
+      b.classList.toggle("active", isCurrent);
+      b.disabled = locked;
+      b.style.opacity = locked ? "0.4" : "1";
+    });
+  }
+
+  // ---------- wiring ----------
+  toolButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      state.tool = btn.dataset.tool;
+      renderToolUI();
+    });
+  });
+
+  swatches.forEach(s => {
+    s.addEventListener("click", () => {
+      if(state.tool === "eraser") return;
+      toolSettings[state.tool].color = s.dataset.color;
+      renderToolUI();
+    });
+  });
+
+  customColorInput.addEventListener("input", () => {
+    if(state.tool === "eraser") return;
+    toolSettings[state.tool].color = customColorInput.value;
+    renderToolUI();
+  });
+
+  sizeSlider.addEventListener("input", () => {
+    toolSettings[state.tool].size = Number(sizeSlider.value);
+    sizeLabel.textContent = sizeSlider.value + "px";
+  });
+
+  paperButtons.forEach(b => {
+    b.addEventListener("click", () => {
+      const newStyle = b.dataset.paper;
+      const p = currentPage();
+      if(!p) return;
+      if(p.paperStyle === "image"){
+        setStatus("PDF-/Scan-Seiten haben festes Papier");
+        return;
+      }
+      state.defaultPaperStyle = newStyle;
+      setPagePaperStyle(p, newStyle);
+    });
+  });
+
+  prevBtn.addEventListener("click", () => switchPage(state.currentIndex - 1));
+  nextBtn.addEventListener("click", () => switchPage(state.currentIndex + 1));
+  addPageBtn.addEventListener("click", addBlankPage);
+
+  deletePageBtn.addEventListener("click", () => {
+    if(!deleteArmed){
+      deleteArmed = true;
+      deletePageBtn.classList.add("armed");
+      setStatus("Nochmal tippen zum Löschen");
+      clearTimeout(deleteArmTimer);
+      deleteArmTimer = setTimeout(() => {
+        deleteArmed = false;
+        deletePageBtn.classList.remove("armed");
+      }, 3000);
+      return;
+    }
+    clearTimeout(deleteArmTimer);
+    deleteArmed = false;
+    deletePageBtn.classList.remove("armed");
+    deleteCurrentPage();
+  });
+
+  undoBtn.addEventListener("click", undo);
+  redoBtn.addEventListener("click", redo);
+
+  importPdfBtn.addEventListener("click", () => pdfInput.click());
+  pdfInput.addEventListener("change", () => {
+    const file = pdfInput.files[0];
+    pdfInput.value = "";
+    if(file) handlePdfFile(file);
+  });
+
+  scanBtn.addEventListener("click", () => scanInput.click());
+  scanInput.addEventListener("change", () => {
+    const file = scanInput.files[0];
+    scanInput.value = "";
+    if(file) handleScanFile(file);
+  });
+
+  exportBtn.addEventListener("click", exportCurrentPage);
+
+  libraryBtn.addEventListener("click", showLibrary);
+  libraryClose.addEventListener("click", hideLibrary);
+
+  fingerDrawBtn.addEventListener("click", () => {
+    fingerDrawEnabled = !fingerDrawEnabled;
+    fingerDrawBtn.classList.toggle("active", fingerDrawEnabled);
+    applyFingerDrawClassToAllPages();
+    setStatus(fingerDrawEnabled ? "Finger zeichnet" : "Finger scrollt");
+  });
+
+  shapeBtn.addEventListener("click", () => {
+    shapeRecognitionEnabled = !shapeRecognitionEnabled;
+    shapeBtn.classList.toggle("active", shapeRecognitionEnabled);
+    setStatus(shapeRecognitionEnabled ? "Form-Erkennung an" : "Form-Erkennung aus");
+  });
+
+  pmToolButtons.forEach(b => {
+    b.addEventListener("click", () => {
+      state.tool = b.dataset.pmTool;
+      renderToolUI();
+      hidePencilMenu();
+    });
+  });
+  pmColorButtons.forEach(b => {
+    b.addEventListener("click", () => {
+      if(state.tool === "eraser"){
+        // switch to last pen when picking color from eraser mode
+        state.tool = "pen1";
+      }
+      toolSettings[state.tool].color = b.dataset.pmColor;
+      renderToolUI();
+      hidePencilMenu();
+    });
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if(pencilMenu.classList.contains("open") && !pencilMenu.contains(e.target)){
+      hidePencilMenu();
+    }
+  }, true);
+
+  infoBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    infoPanel.classList.toggle("open");
+  });
+  document.addEventListener("click", (e) => {
+    if(!infoPanel.contains(e.target) && e.target !== infoBtn){
+      infoPanel.classList.remove("open");
+    }
+  });
+
+  titleInput.addEventListener("change", async () => {
+    const newTitle = titleInput.value.trim() || "Notizbuch";
+    state.notebookTitle = newTitle;
+    if(state.currentNotebookId){
+      const meta = await loadNotebookMeta(state.currentNotebookId);
+      if(meta){
+        meta.title = newTitle;
+        await saveNotebookMeta(meta);
+      }
+    }
+    saveMetaDebounced();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+    if(mod && e.key.toLowerCase() === "z" && !e.shiftKey){ e.preventDefault(); undo(); }
+    else if(mod && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))){ e.preventDefault(); redo(); }
+  });
+
+  window.addEventListener("resize", debounce(() => positionPageTab(currentPage()), 150));
+
+  // ---------- notebook lifecycle ----------
+  function clearCanvasArea(){
+    pages.forEach(p => { try{ p.canvas.remove(); }catch(e){} });
+    pages = [];
+  }
+
+  async function loadNotebook(notebookId){
+    clearCanvasArea();
+    const meta = await loadNotebookMeta(notebookId);
+    if(!meta){
+      // fallback: create fresh
+      return createNotebookWithBlankPage(notebookId, "Notizbuch");
+    }
+    state.currentNotebookId = meta.id;
+    state.notebookTitle     = meta.title || "Notizbuch";
+    state.defaultPaperStyle = meta.defaultPaperStyle || "dots";
+    titleInput.value = state.notebookTitle;
+
+    const metaPages = Array.isArray(meta.pages) && meta.pages.length ? meta.pages : null;
+    if(metaPages){
+      for(const pmeta of metaPages){
+        const ps = pmeta.paperStyle || "dots";
+        const pageObj = createPageCanvas(pmeta.W || DEFAULT_W, pmeta.H || DEFAULT_H, ps);
+        pageObj.id = pmeta.id;
+        pages.push(pageObj);
+        const blob = await idb.pageGet(pmeta.id);
+        if(blob) await drawBlobToCanvas(blob, pageObj);
+      }
+      state.currentIndex = Math.min(meta.currentPageIndex || 0, pages.length - 1);
+    } else {
+      const pageObj = createPageCanvas(DEFAULT_W, DEFAULT_H, state.defaultPaperStyle);
+      pages.push(pageObj);
+      state.currentIndex = 0;
+      schedulePageSave(pageObj);
+    }
+
+    renderToolUI();
+    switchPage(state.currentIndex);
+    await saveAppState({ lastNotebookId: notebookId });
+  }
+
+  async function createNotebookWithBlankPage(presetId, title){
+    const id = presetId || uidNotebook();
+    state.currentNotebookId = id;
+    state.notebookTitle = title;
+    state.defaultPaperStyle = "dots";
+    state.currentIndex = 0;
+    titleInput.value = title;
+
+    clearCanvasArea();
+    const pageObj = createPageCanvas(DEFAULT_W, DEFAULT_H, "dots");
+    pages.push(pageObj);
+
+    // persist immediately
+    await saveNotebookMeta({
+      id, title,
+      defaultPaperStyle: "dots",
+      currentPageIndex: 0,
+      pages: [{ id: pageObj.id, W: pageObj.W, H: pageObj.H, paperStyle: "dots" }]
+    });
+    await performPageSave(pageObj);
+
+    const idx = await loadNotebookIndex();
+    if(!idx.includes(id)){
+      idx.unshift(id);
+      await saveNotebookIndex(idx);
+    }
+    await saveAppState({ lastNotebookId: id });
+
+    renderToolUI();
+    switchPage(0);
+    return id;
+  }
+
+  async function switchToNotebook(id){
+    if(id === state.currentNotebookId) return;
+    // Flush any pending saves first
+    for(const [pid, t] of saveTimers){ clearTimeout(t); }
+    saveTimers.clear();
+    await loadNotebook(id);
+    hideLibrary();
+  }
+
+  async function renameNotebook(id, newTitle){
+    const meta = await loadNotebookMeta(id);
+    if(!meta) return;
+    meta.title = newTitle;
+    await saveNotebookMeta(meta);
+    if(id === state.currentNotebookId){
+      state.notebookTitle = newTitle;
+      titleInput.value = newTitle;
+    }
+    renderLibrary();
+  }
+
+  async function deleteNotebook(id){
+    const meta = await loadNotebookMeta(id);
+    if(meta && Array.isArray(meta.pages)){
+      for(const p of meta.pages){ await idb.pageDel(p.id); }
+    }
+    await deleteNotebookMeta(id);
+    const idx = await loadNotebookIndex();
+    const newIdx = idx.filter(x => x !== id);
+    await saveNotebookIndex(newIdx);
+
+    if(id === state.currentNotebookId){
+      if(newIdx.length){
+        await loadNotebook(newIdx[0]);
+      } else {
+        await createNotebookWithBlankPage(null, "Notizbuch");
+      }
+    }
+    renderLibrary();
+  }
+
+  // ---------- library overlay ----------
+  function showLibrary(){
+    libraryOverlay.classList.add("open");
+    libraryOverlay.setAttribute("aria-hidden", "false");
+    renderLibrary();
+  }
+  function hideLibrary(){
+    libraryOverlay.classList.remove("open");
+    libraryOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  async function renderLibrary(){
+    const ids = await loadNotebookIndex();
+    libraryGrid.innerHTML = "";
+
+    // new-notebook card
+    const newCard = document.createElement("div");
+    newCard.className = "nb-card nb-card-new";
+    newCard.innerHTML = "<div>+&nbsp;Neues Fach</div>";
+    newCard.addEventListener("click", async () => {
+      const title = await promptDialog({
+        title: "Neues Fach",
+        desc: "Wie soll das Fach heißen?",
+        initial: "",
+        okLabel: "Erstellen"
+      });
+      if(!title) return;
+      const id = uidNotebook();
+      await createNotebookWithBlankPage(id, title);
+      // createNotebookWithBlankPage already inserts at the start of the index
+      hideLibrary();
+    });
+    libraryGrid.appendChild(newCard);
+
+    for(const id of ids){
+      const meta = await loadNotebookMeta(id);
+      if(!meta) continue;
+      const card = document.createElement("div");
+      card.className = "nb-card" + (id === state.currentNotebookId ? " active" : "");
+      const pageCount = Array.isArray(meta.pages) ? meta.pages.length : 0;
+      const date = meta.updatedAt
+        ? new Date(meta.updatedAt).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" })
+        : "";
+      card.innerHTML =
+        '<div class="nb-card-title"></div>' +
+        '<div class="nb-card-meta">' + pageCount + ' Seiten · ' + date + '</div>' +
+        '<div class="nb-card-actions">' +
+          '<button data-act="rename" aria-label="Umbenennen">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.1-4.4L15.8 5a1.7 1.7 0 0 1 2.4 0l0.8 0.8a1.7 1.7 0 0 1 0 2.4L8.4 18.9 4 20z"/></svg>' +
+          '</button>' +
+          '<button data-act="delete" aria-label="Löschen">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l0.8 13a1 1 0 0 0 1 0.9h7.4a1 1 0 0 0 1-0.9L17.5 7"/></svg>' +
+          '</button>' +
+        '</div>';
+      card.querySelector(".nb-card-title").textContent = meta.title;
+      card.addEventListener("click", (e) => {
+        if(e.target.closest("[data-act]")) return;
+        switchToNotebook(id);
+      });
+      card.querySelector('[data-act="rename"]').addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const newName = await promptDialog({
+          title: "Umbenennen",
+          desc: "Neuer Name für „" + meta.title + "“",
+          initial: meta.title,
+          okLabel: "Speichern"
+        });
+        if(newName && newName !== meta.title){
+          await renameNotebook(id, newName);
+        }
+      });
+      card.querySelector('[data-act="delete"]').addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const confirmed = await promptDialog({
+          title: "Wirklich löschen?",
+          desc: "„" + meta.title + "“ und alle Seiten werden gelöscht. Lässt sich nicht rückgängig machen.",
+          initial: "",
+          okLabel: "Löschen",
+          destructive: true,
+          noInput: true
+        });
+        if(confirmed){
+          await deleteNotebook(id);
+        }
+      });
+      libraryGrid.appendChild(card);
+    }
+  }
+
+  // ---------- prompt dialog ----------
+  function promptDialog({ title, desc, initial, okLabel, destructive, noInput }){
+    return new Promise((resolve) => {
+      const backdrop = document.getElementById("nb-prompt-backdrop");
+      const titleEl  = document.getElementById("nb-prompt-title");
+      const descEl   = document.getElementById("nb-prompt-desc");
+      const input    = document.getElementById("nb-prompt-input");
+      const okBtn    = document.getElementById("nb-prompt-ok");
+      const cancel   = document.getElementById("nb-prompt-cancel");
+
+      titleEl.textContent = title;
+      descEl.textContent  = desc || "";
+      input.value = initial || "";
+      input.style.display = noInput ? "none" : "";
+      okBtn.textContent = okLabel || "OK";
+      okBtn.classList.toggle("destructive", !!destructive);
+
+      function cleanup(){
+        backdrop.classList.remove("open");
+        okBtn.onclick = cancel.onclick = input.onkeydown = backdrop.onclick = null;
+      }
+      okBtn.onclick = () => {
+        const v = noInput ? true : input.value.trim();
+        cleanup();
+        resolve(v || (noInput ? false : null));
+      };
+      cancel.onclick = () => { cleanup(); resolve(null); };
+      input.onkeydown = (ev) => {
+        if(ev.key === "Enter"){ okBtn.click(); }
+        if(ev.key === "Escape"){ cancel.click(); }
+      };
+      backdrop.onclick = (ev) => { if(ev.target === backdrop) cancel.click(); };
+
+      backdrop.classList.add("open");
+      if(!noInput){
+        setTimeout(() => { input.focus(); input.select(); }, 60);
+      } else {
+        setTimeout(() => okBtn.focus(), 60);
+      }
+    });
+  }
+
+  // ---------- init ----------
+  async function init(){
+    setStatus("Lädt…");
+    if(!hasStorage){
+      setStatus("Kein IndexedDB-Storage – Daten werden nicht gespeichert");
+    }
+
+    const idxList = await loadNotebookIndex();
+    if(!idxList.length){
+      // First launch: create a default notebook
+      await createNotebookWithBlankPage(null, "Mein Notizbuch");
+      setStatus("Bereit");
+      return;
+    }
+    const app = await loadAppState();
+    const target = (app.lastNotebookId && idxList.includes(app.lastNotebookId))
+      ? app.lastNotebookId
+      : idxList[0];
+    await loadNotebook(target);
+    setStatus("Bereit");
+  }
+
+  init();
+})();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(err => {
+      console.warn("SW registration failed:", err);
+    });
+  });
+}
+</script>
+</body>
+</html>
